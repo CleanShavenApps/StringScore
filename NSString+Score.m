@@ -19,13 +19,27 @@
     return [self scoreAgainst:otherString fuzziness:fuzziness options:NSStringScoreOptionNone];
 }
 
-- (CGFloat) scoreAgainst:(NSString *)anotherString fuzziness:(NSNumber *)fuzziness options:(NSStringScoreOption)options{
+- (CGFloat) scoreAgainst:(NSString *)anotherString fuzziness:(NSNumber *)fuzziness options:(NSStringScoreOption)options {
+    NSCharacterSet *invalidCharacterSet = [self invalidCharacterSet];
+    NSString *string = [self decomposedStringWithInvalidCharacterSet:invalidCharacterSet];
+    return [self scoreAgainst:anotherString fuzziness:fuzziness options:options invalidCharacterSet:invalidCharacterSet decomposedString:string];
+}
+
+- (NSCharacterSet *)invalidCharacterSet {
     NSMutableCharacterSet *workingInvalidCharacterSet = [NSCharacterSet lowercaseLetterCharacterSet];
     [workingInvalidCharacterSet formUnionWithCharacterSet:[NSCharacterSet uppercaseLetterCharacterSet]];
     [workingInvalidCharacterSet addCharactersInString:@" "];
     NSCharacterSet *invalidCharacterSet = [workingInvalidCharacterSet invertedSet];
-    
+    return invalidCharacterSet;
+}
+
+- (NSString *)decomposedStringWithInvalidCharacterSet:(NSCharacterSet *)invalidCharacterSet {
     NSString *string = [[[self decomposedStringWithCanonicalMapping] componentsSeparatedByCharactersInSet:invalidCharacterSet] componentsJoinedByString:@""];
+    return string;
+}
+
+- (CGFloat) scoreAgainst:(NSString *)anotherString fuzziness:(NSNumber *)fuzziness options:(NSStringScoreOption)options
+     invalidCharacterSet:(NSCharacterSet *)invalidCharacterSet decomposedString:(NSString *)string {
     NSString *otherString = [[[anotherString decomposedStringWithCanonicalMapping] componentsSeparatedByCharactersInSet:invalidCharacterSet] componentsJoinedByString:@""];
     
     // If the string is equal to the abbreviation, perfect match.
@@ -41,24 +55,35 @@
     CGFloat otherStringScore;
     CGFloat fuzzies = 1;
     CGFloat finalScore;
-        
+
+    NSString *otherUpper = [otherString uppercaseString];
+    NSString *otherLower = [otherString lowercaseString];
+
+    CGFloat fuzzinessFloat = fuzziness.floatValue;
+
+    unichar space = [@" " characterAtIndex:0];
+
     // Walk through abbreviation and add up scores.
     for(uint index = 0; index < otherStringLength; index++){
         CGFloat characterScore = 0.1;
         NSInteger indexInString = NSNotFound;
-        NSString *chr;
         NSRange rangeChrLowercase;
         NSRange rangeChrUppercase;
 
-        chr = [otherString substringWithRange:NSMakeRange(index, 1)];
-        
+        NSRange r  =NSMakeRange(index, 1);
+
+        unichar chr = [otherString characterAtIndex:index];
+
+        NSString *upperChr = [otherUpper substringWithRange:r];
+        NSString *lowerChr = [otherLower substringWithRange:r];
+
         //make these next few lines leverage NSNotfound, methinks.
-        rangeChrLowercase = [string rangeOfString:[chr lowercaseString]];
-        rangeChrUppercase = [string rangeOfString:[chr uppercaseString]];
+        rangeChrLowercase = [string rangeOfString:lowerChr];
+        rangeChrUppercase = [string rangeOfString:upperChr];
         
         if(rangeChrLowercase.location == NSNotFound && rangeChrUppercase.location == NSNotFound){
             if(fuzziness){
-                fuzzies += 1 - [fuzziness floatValue];
+                fuzzies += 1 - fuzzinessFloat;
             } else {
                 return 0; // this is an error!
             }
@@ -77,7 +102,7 @@
         // Set base score for matching chr
         
         // Same case bonus.
-        if(indexInString != NSNotFound && [[string substringWithRange:NSMakeRange(indexInString, 1)] isEqualToString:chr]){
+        if(indexInString != NSNotFound && [string characterAtIndex:indexInString] == chr){
             characterScore += 0.1;
         }
         
@@ -95,7 +120,8 @@
             // Acronym Bonus
             // Weighing Logic: Typing the first character of an acronym is as if you
             // preceded it with two perfect character matches.
-            if( [[string substringWithRange:NSMakeRange(indexInString - 1, 1)] isEqualToString:@" "] ){
+
+            if([string characterAtIndex:indexInString - 1] == space) {
                 characterScore += 0.8;
             }
         }

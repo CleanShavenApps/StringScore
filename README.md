@@ -2,6 +2,7 @@
 
 StringScore is an Objective-C library which provides super fast fuzzy string matching/scoring. Based on the [JavaScript library of the same name](https://github.com/joshaven/string_score), by [Joshaven Potter](https://github.com/joshaven).
 
+This fork was created to prove that StringScore provides reasonable performance. The question about it was raised on the Stackoverflow question [Objective-c: Fast Fuzzy Search Match](http://stackoverflow.com/questions/15012673/objective-c-fast-fuzzy-search-match/15014414#15014414).
 
 ## Using StringScore
 
@@ -64,6 +65,25 @@ The resulting output is:
 2012-05-14 15:13:38.077 StringScore[13415:18a03] Result 5 = 0.425000
 2012-05-14 15:13:38.078 StringScore[13415:18a03] Result 6 = 0.645833
 ````
+
+## Setup code extracted
+
+Mainly, the setup code is pulled out of the `scoreAgainst:` method, thus 3 new methods are added to `NSString+StringScore`:
+
+````
+
+- (NSCharacterSet *)invalidCharacterSet;
+- (NSString *)decomposedStringWithInvalidCharacterSet:(NSCharacterSet *)invalidCharacterSet;
+
+- (CGFloat) scoreAgainst:(NSString *)anotherString fuzziness:(NSNumber *)fuzziness options:(NSStringScoreOption)options
+     invalidCharacterSet:(NSCharacterSet *)invalidCharacterSet decomposedString:(NSString *)string;
+````
+
+The first two can be used to generate the data that is needed for the scoring algorithm. It will speed up the operation if `scoreAgainst:` is called repeatedly on the same string.
+
+## Additional changes
+
+The other changes focus on speeding up the algorithm itself by generating fewer NSString objects.
 
 ## Credits
 
